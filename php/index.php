@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Logger Website</title>
+    <title>School Logger</title>
 </head>
 <body>
 <?php
