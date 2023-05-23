@@ -152,6 +152,15 @@ class Logger
             echo "Žiadne neskoré príchody.<br>";
         }
     }
+
+    public static function processNameParameter()
+    {
+        if (isset($_GET['name'])) {
+            $studentName = $_GET['name'];
+            $_POST["studentName"] = $studentName;
+            Logger::saveStudent($studentName);
+        }
+    }
 }
 
 echo "Ahoj, Aktuálny dátum a čas: " . Logger::getCurrentDateTime() . "<br>";
@@ -163,10 +172,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-if (isset($_GET['name'])) {
-    $studentName = $_GET['name'];
-    Logger::processStudentArrival(Logger::getCurrentDateTime(), $studentName);
-}
+Logger::processNameParameter();
 
 echo "<h2>Prihlásení študenti:</h2>";
 Logger::printStudents();
