@@ -28,38 +28,9 @@ class Logger
         return date("Y-m-d H:i:s");
     }
 
-    public static function appendToLogFile(string $logData, string $filename)
-    {
-        $existingLogs = file_get_contents($filename);
-
-        if (!empty($existingLogs)) {
-            $logData = "\n" . $logData;
-        }
-
-        file_put_contents($filename, $logData, FILE_APPEND);
-    }
-
     public static function getLogs(string $filename)
     {
         return file_get_contents($filename);
-    }
-
-    public static function processStudentArrival(string $studentArrivalTime, string $studentName = '')
-    {
-        if ($studentArrivalTime > "08:00:00") {
-            $logData = self::getCurrentDateTime() . " - meskanie";
-        } elseif ($studentArrivalTime >= "20:00:00" && $studentArrivalTime <= "23:59:59") {
-            die("Nemoze sa zapisat dany prichod do logu.");
-        } else {
-            $logData = self::getCurrentDateTime();
-        }
-
-        if (!empty($studentName)) {
-            self::appendToLogFile($studentName, self::$studentLogFile);
-            $logData .= " - $studentName";
-        }
-
-        self::appendToLogFile($logData, self::$arrivalLogFile);
     }
 
     public static function saveStudent(string $studentName)
@@ -141,11 +112,22 @@ class Logger
 
         if (!empty($students) && !empty($arrivals)) {
             foreach ($arrivals as $index => $arrival) {
-                if (strtotime($arrival['arrival_time']) > strtotime("08:00:00")) {
-                    $studentName = $students[$index]['name'] ?? "Unknown";
+                $studentName = $students[$index]['name'] ?? "Unknown";
+                $studentArrivalTime = strtotime($arrival['arrival_time']);
+
+                if ($studentArrivalTime > strtotime("08:00:00")) {
+
                     echo "ID žiaka: " . $students[$index]['id'] . "<br>";
                     echo "Meno žiaka: " . $studentName . " - Neskorý príchod<br>";
                     echo "Čas príchodu: " . $arrival['arrival_time'] . "<br><br>";
+
+                } elseif ($studentArrivalTime >= strtotime("20:00:00") &&
+                    $studentArrivalTime <= strtotime("23:59:59")) {
+
+                    echo "ID žiaka: " . $students[$index]['id'] . "<br>";
+                    echo "Meno žiaka: " . $studentName . " - Záznam nie je povolený.<br><br>";
+                    die(); // Terminate script
+
                 }
             }
         } else {
@@ -178,7 +160,7 @@ echo "<h2>Prihlásení študenti:</h2>";
 Logger::printStudents();
 
 echo "<h2>studenti.json:</h2>";
-echo nl2br(Logger::getLogs(Logger::$studentLogFile)); // Display logs with line breaks
+echo nl2br(Logger::getLogs(Logger::$studentLogFile)); // Display student logs
 
 echo "<h2>prichody.json:</h2>";
 echo nl2br(Logger::getLogs(Logger::$arrivalLogFile)); // Display arrival logs
