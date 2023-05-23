@@ -2,6 +2,49 @@
 <html lang="en">
 <head>
     <title>School Logger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        h2 {
+            margin-top: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+
+        input[type="text"] {
+            width: 200px;
+            padding: 5px;
+        }
+
+        input[type="submit"] {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .log-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .log-item span {
+            font-weight: bold;
+        }
+
+        .no-logs {
+            font-style: italic;
+            color: #999;
+        }
+    </style>
 </head>
 <body>
 <?php
@@ -11,7 +54,7 @@ class Logger
     public static $studentLogFile = "studenti.json";
     public static $arrivalLogFile = "prichody.json";
 
-    private static function getNextId(string $filename): int
+    public static function getNextId(string $filename): int
     {
         if (file_exists($filename)) {
             $data = json_decode(file_get_contents($filename), true);
@@ -21,6 +64,11 @@ class Logger
             }
         }
         return 1;
+    }
+
+    private static function encodeJson($data)
+    {
+        return json_encode($data, JSON_PRETTY_PRINT);
     }
 
     public static function getCurrentDateTime()
@@ -54,16 +102,13 @@ class Logger
             'name' => $studentName
         ];
         $students[] = $student;
-        $encodedStudents = json_encode($students, JSON_PRETTY_PRINT);
+        $encodedStudents = self::encodeJson($students);
         file_put_contents($studentLogFile, $encodedStudents);
 
         $arrivalId = self::getNextId($arrivalLogFile);
-        $arrival = [
-            'id' => $arrivalId,
-            'arrival_time' => self::getCurrentDateTime()
-        ];
-        $arrivals[] = $arrival;
-        $encodedArrivals = json_encode($arrivals, JSON_PRETTY_PRINT);
+        $arrival = new Arrival($arrivalId);
+        $arrivals[] = $arrival->toArray();
+        $encodedArrivals = self::encodeJson($arrivals);
         file_put_contents($arrivalLogFile, $encodedArrivals);
     }
 
@@ -96,12 +141,14 @@ class Logger
 
         if (!empty($students) && !empty($arrivals)) {
             foreach ($students as $index => $student) {
-                echo "ID žiaka: " . $student['id'] . "<br>";
-                echo "Meno žiaka: " . $student['name'] . "<br>";
-                echo "Čas príchodu: " . $arrivals[$index]['arrival_time'] . "<br><br>";
+                echo '<div class="log-item">';
+                echo '<span>ID žiaka:</span> ' . $student['id'] . '<br>';
+                echo '<span>Meno žiaka:</span> ' . $student['name'] . '<br>';
+                echo '<span>Čas príchodu:</span> ' . $arrivals[$index]['arrival_time'] . '<br>';
+                echo '</div>';
             }
         } else {
-            echo "Žiadni študenti neboli prihlásení.<br>";
+            echo '<p class="no-logs">Žiadni študenti neboli prihlásení.</p>';
         }
     }
 
@@ -116,22 +163,22 @@ class Logger
                 $studentArrivalTime = strtotime($arrival['arrival_time']);
 
                 if ($studentArrivalTime > strtotime("08:00:00")) {
-
-                    echo "ID žiaka: " . $students[$index]['id'] . "<br>";
-                    echo "Meno žiaka: " . $studentName . " - Neskorý príchod<br>";
-                    echo "Čas príchodu: " . $arrival['arrival_time'] . "<br><br>";
-
+                    echo '<div class="log-item">';
+                    echo '<span>ID žiaka:</span> ' . $students[$index]['id'] . '<br>';
+                    echo '<span>Meno žiaka:</span> ' . $studentName . ' - Neskorý príchod<br>';
+                    echo '<span>Čas príchodu:</span> ' . $arrival['arrival_time'] . '<br>';
+                    echo '</div>';
                 } elseif ($studentArrivalTime >= strtotime("20:00:00") &&
                     $studentArrivalTime <= strtotime("23:59:59")) {
-
-                    echo "ID žiaka: " . $students[$index]['id'] . "<br>";
-                    echo "Meno žiaka: " . $studentName . " - Záznam nie je povolený.<br><br>";
+                    echo '<div class="log-item">';
+                    echo '<span>ID žiaka:</span> ' . $students[$index]['id'] . '<br>';
+                    echo '<span>Meno žiaka:</span> ' . $studentName . ' - Záznam nie je povolený.<br>';
+                    echo '</div>';
                     die(); // Terminate script
-
                 }
             }
         } else {
-            echo "Žiadne neskoré príchody.<br>";
+            echo '<p class="no-logs">Žiadne neskoré príchody.</p>';
         }
     }
 
@@ -143,36 +190,101 @@ class Logger
             Logger::saveStudent($studentName);
         }
     }
+
+    public static function processPostRequest()
+    {
+        if ($_SERVER["REQUEST_METHOD"] === "POST") {
+            $studentName = $_POST["studentName"];
+            if (!empty($studentName)) {
+                self::saveStudent($studentName);
+            }
+        }
+    }
+
+    public static function printStudentLogs()
+    {
+        $studentLogs = self::getLogs(self::$studentLogFile);
+        $students = json_decode($studentLogs, true);
+
+        if (!empty($students)) {
+            echo '<h2>Contents of studenti.json:</h2>';
+            foreach ($students as $student) {
+                echo '<div class="log-item">';
+                echo '<span>ID žiaka:</span> ' . $student['id'] . '<br>';
+                echo '<span>Meno žiaka:</span> ' . $student['name'] . '<br>';
+                echo '</div>';
+            }
+        } else {
+            echo '<p class="no-logs">No student logs found.</p>';
+        }
+    }
+
+    public static function printArrivalLogs()
+    {
+        $arrivalLogs = self::getLogs(self::$arrivalLogFile);
+        $arrivals = json_decode($arrivalLogs, true);
+
+        if (!empty($arrivals)) {
+            echo '<h2>Contents of prichody.json:</h2>';
+            foreach ($arrivals as $arrival) {
+                echo '<div class="log-item">';
+                echo '<span>ID žiaka:</span> ' . $arrival['id'] . '<br>';
+                echo '<span>Čas príchodu:</span> ' . $arrival['arrival_time'] . '<br>';
+                echo '</div>';
+            }
+        } else {
+            echo '<p class="no-logs">No arrival logs found.</p>';
+        }
+    }
 }
 
-echo "Ahoj, Aktuálny dátum a čas: " . Logger::getCurrentDateTime() . "<br>";
+class Arrival
+{
+    private $id;
+    private $arrivalTime;
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $studentName = $_POST["studentName"];
-    if (!empty($studentName)) {
-        Logger::saveStudent($studentName);
+    public function __construct($id)
+    {
+        $this->id = $id;
+        $this->arrivalTime = Logger::getCurrentDateTime();
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'arrival_time' => $this->arrivalTime
+        ];
     }
 }
 
 Logger::processNameParameter();
+Logger::processPostRequest();
 
-echo "<h2>Prihlásení študenti:</h2>";
+?>
+<h2>Prihlasovací formulár</h2>
+<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+    <label for="name">Meno študenta:</label>
+    <input type="text" id="name" name="studentName" required>
+
+    <input type="submit" value="Prihlásiť">
+</form>
+
+<h2>Zoznam prihlásených študentov</h2>
+<?php
 Logger::printStudents();
+?>
 
-echo "<h2>studenti.json:</h2>";
-echo nl2br(Logger::getLogs(Logger::$studentLogFile)); // Display student logs
-
-echo "<h2>prichody.json:</h2>";
-echo nl2br(Logger::getLogs(Logger::$arrivalLogFile)); // Display arrival logs
-
-echo "<h2>Meskanie:</h2>";
+<h2>Zoznam neskorých príchodov</h2>
+<?php
 Logger::checkLateArrivals();
 ?>
-<h2>Form:</h2>
-<form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="POST">
-    <label for="studentName">Meno žiaka:</label>
-    <input type="text" name="studentName" id="studentName">
-    <input type="submit" value="Submit">
-</form>
+
+<h2>Logy</h2>
+<?php
+Logger::printStudentLogs();
+Logger::printArrivalLogs();
+?>
+
 </body>
 </html>
